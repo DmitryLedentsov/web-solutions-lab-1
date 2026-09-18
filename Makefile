@@ -1,7 +1,10 @@
-.PHONY: install generate build serve clean
+.PHONY: install benchmark generate build serve clean
 
 install:
 	python -m pip install -r requirements.txt
+
+benchmark:
+	python scripts/benchmark.py
 
 generate:
 	python scripts/generate.py
