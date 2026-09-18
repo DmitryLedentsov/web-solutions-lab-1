@@ -68,7 +68,7 @@
 
 **Проверка:** шаги генерации, `mkdocs build --strict` и `Upload Pages artifact` завершились успешно; ошибка возникла только в `actions/deploy-pages`.
 
-**Решение:** в настройках репозитория требуется выбрать `Settings → Pages → Source: GitHub Actions`, после чего повторный запуск workflow сможет выполнить deployment.
+**Решение:** в настройках репозитория выбран `Settings → Pages → Source: GitHub Actions`. После переключения повторный запуск успешно прошёл целиком: `build` и `deploy` завершились со статусом `success`, а сайт опубликован по адресу `https://dmitryledentsov.github.io/web-solutions-lab-1/`.
 
 ## Вывод
 
