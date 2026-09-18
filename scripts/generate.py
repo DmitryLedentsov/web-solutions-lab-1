@@ -17,6 +17,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "measurements.csv"
+BENCHMARK_META = ROOT / "data" / "benchmark_metadata.json"
 DOCS = ROOT / "docs"
 ASSETS = DOCS / "assets"
 OUTPUT_MD = DOCS / "experiment.md"
@@ -31,6 +32,7 @@ def dataset_hash() -> str:
 def cache_key() -> str:
     digest = hashlib.sha256()
     digest.update(DATA.read_bytes())
+    digest.update(BENCHMARK_META.read_bytes())
     digest.update(Path(__file__).read_bytes())
     digest.update((ROOT / "requirements.txt").read_bytes())
     return digest.hexdigest()
@@ -53,10 +55,14 @@ def commit_hash() -> str:
 
 def calculate() -> list[dict[str, float]]:
     df = pd.read_csv(DATA)
-    required = {"input_size", "run", "duration_ms"}
+    required = {"input_size", "run", "duration_ms", "checksum"}
     if not required.issubset(df.columns):
         missing = ", ".join(sorted(required - set(df.columns)))
         raise ValueError(f"В CSV отсутствуют столбцы: {missing}")
+
+    checksum_counts = df.groupby("input_size")["checksum"].nunique()
+    if (checksum_counts != 1).any():
+        raise ValueError("Контрольная сумма различается между повторами бенчмарка")
 
     grouped = (
         df.groupby("input_size", as_index=False)["duration_ms"]
@@ -73,8 +79,8 @@ def calculate() -> list[dict[str, float]]:
         marker="o",
         capsize=4,
     )
-    ax.set_title("Зависимость времени обработки от размера входных данных")
-    ax.set_xlabel("Размер входных данных")
+    ax.set_title("Время выполнения CPU-бенчмарка")
+    ax.set_xlabel("Число итераций")
     ax.set_ylabel("Среднее время, мс")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
@@ -86,7 +92,7 @@ def calculate() -> list[dict[str, float]]:
 
 def table_markdown(rows: list[dict[str, float]]) -> str:
     lines = [
-        "| Размер входных данных | Среднее время, мс | Стандартное отклонение, мс |",
+        "| Число итераций | Среднее время, мс | Стандартное отклонение, мс |",
         "|---:|---:|---:|",
     ]
     for row in rows:
@@ -97,15 +103,47 @@ def table_markdown(rows: list[dict[str, float]]) -> str:
 
 
 def write_page(rows: list[dict[str, float]], used_cache: bool, elapsed: float) -> None:
+    meta = json.loads(BENCHMARK_META.read_text(encoding="utf-8"))
     data_sha = dataset_hash()
     built_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     cache_text = "использован кэш" if used_cache else "результаты пересчитаны"
+    sizes = ", ".join(f"{value:,}".replace(",", " ") for value in meta["sizes"])
 
     page = f"""# Практическое задание P3
 
 ## Воспроизводимый конвейер «данные → результат → сайт»
 
-Исходные измерения находятся в `data/measurements.csv`. Скрипт `scripts/generate.py` читает CSV, группирует повторные измерения по размеру входных данных, вычисляет среднее время и стандартное отклонение, затем формирует таблицу и график для этой страницы.
+### Как получены исходные данные
+
+Исходные измерения **не заданы вручную**. Их формирует `scripts/benchmark.py`: скрипт выполняет детерминированную CPU-нагрузку
+
+```python
+total += (i * i + 3 * i) % 97
+```
+
+в обычном Python-цикле для нескольких размеров входа. Для каждого размера выполняется один прогревочный запуск, после чего время измеряется {meta['repeats']} раз с помощью `{meta['timer']}`. Результат вычисления дополнительно записывается в CSV как `checksum`, чтобы убедиться, что во всех повторах выполнялась одна и та же работа.
+
+Размеры входа: **{sizes} итераций**.
+
+Сырые измерения находятся в `data/measurements.csv`, параметры запуска — в `data/benchmark_metadata.json`. Их можно воспроизвести командой:
+
+```bash
+python scripts/benchmark.py
+```
+
+После получения исходных данных `scripts/generate.py` вычисляет среднее время и стандартное отклонение, затем формирует таблицу и график для сайта.
+
+### Окружение исходного замера
+
+| Параметр | Значение |
+|---|---|
+| Дата измерения | `{meta['generated_at_utc']}` |
+| Python | `{meta['python_implementation']} {meta['python_version']}` |
+| Платформа | `{meta['platform']}` |
+| Архитектура | `{meta['machine']}` |
+| Повторов для каждого размера | {meta['repeats']} |
+| Прогревочных запусков | {meta['warmups_per_size']} |
+| Таймер | `{meta['timer']}` |
 
 ### Результаты
 
@@ -113,7 +151,9 @@ def write_page(rows: list[dict[str, float]], used_cache: bool, elapsed: float) -
 
 ![График результатов эксперимента](assets/experiment.png)
 
-### Метаданные сборки
+Линейный характер графика ожидаем: выбранная нагрузка выполняет постоянный объём арифметики на каждой итерации, то есть имеет сложность O(n). Разброс между повторами отражается стандартным отклонением и связан с реальным временем выполнения процесса в операционной системе.
+
+### Метаданные сборки сайта
 
 | Параметр | Значение |
 |---|---|
@@ -125,13 +165,14 @@ def write_page(rows: list[dict[str, float]], used_cache: bool, elapsed: float) -
 
 ### Как обеспечена воспроизводимость
 
-1. Версии Python-зависимостей зафиксированы в `requirements.txt`.
-2. Исходные данные хранятся в репозитории вместе с кодом расчёта.
-3. При каждой сборке вычисляется SHA-256 исходного CSV.
-4. Ключ кэша зависит от данных, скрипта расчёта и `requirements.txt`.
-5. Если ключ не изменился, численные результаты и график берутся из кэша; Markdown-страница всё равно создаётся заново, чтобы обновить commit и дату сборки.
+1. Скрипт `scripts/benchmark.py` хранит точный алгоритм получения исходных измерений.
+2. Сырые результаты и метаданные окружения сохранены в `data/`.
+3. Версии зависимостей этапа анализа зафиксированы в `requirements.txt`.
+4. При каждой сборке вычисляется SHA-256 исходного CSV.
+5. Ключ кэша зависит от данных, метаданных бенчмарка, скрипта анализа и `requirements.txt`.
+6. Если исходные данные не изменились, агрегированные значения и PNG берутся из кэша; Markdown-страница всё равно создаётся заново, чтобы обновить commit и дату сборки.
 
-Чтобы продемонстрировать автоматическое обновление, достаточно изменить значение в `data/measurements.csv` и выполнить `git push`: workflow повторно запустит генератор и пересоберёт сайт.
+Если повторно запустить `python scripts/benchmark.py`, измерения немного изменятся из-за состояния машины. После commit и push новый CSV изменит ключ кэша, и CI автоматически пересчитает таблицу и график.
 """
     OUTPUT_MD.write_text(page, encoding="utf-8")
 
