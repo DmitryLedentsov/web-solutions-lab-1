@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .cache/experiment
-          key: experiment-${{ runner.os }}-${{ hashFiles('data/measurements.csv', 'scripts/generate.py', 'requirements.txt') }}
+          key: experiment-${{ runner.os }}-${{ hashFiles('data/measurements.csv', 'data/benchmark_metadata.json', 'scripts/benchmark.py', 'scripts/generate.py', 'requirements.txt') }}
           restore-keys: |
             experiment-${{ runner.os }}-
 
@@ -74,7 +74,7 @@ jobs:
 
           curl --fail --silent --show-error --location --retry 10 --retry-delay 2 --retry-all-errors "${PAGE_URL}experiment/" -o /tmp/experiment.html
           grep -F "Практическое задание P3" /tmp/experiment.html
-          grep -F "Размер входных данных" /tmp/experiment.html
+          grep -F "Число итераций" /tmp/experiment.html
 
           curl --fail --silent --show-error --location --retry 10 --retry-delay 2 --retry-all-errors "${PAGE_URL}assets/experiment.png" -o /tmp/experiment.png
           test -s /tmp/experiment.png
