@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.cache/
+site/
+.DS_Store
+docs/experiment.md
+docs/assets/experiment.png
