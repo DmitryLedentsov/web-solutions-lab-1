@@ -1,0 +1,27 @@
+site_name: Публикация результатов исследования
+site_description: Лабораторная работа по генераторам статических сайтов и воспроизводимой публикации результатов
+site_url: https://dmitryledentsov.github.io/web-solutions-lab-1/
+repo_url: https://github.com/DmitryLedentsov/web-solutions-lab-1
+repo_name: DmitryLedentsov/web-solutions-lab-1
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Главная: index.md
+  - Исследовательское задание T2: research.md
+  - Практическое задание P3: experiment.md
+  - Конвейер и CI/CD: pipeline.md
+  - Ход работы и отладка: report.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
