@@ -64,3 +64,17 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Healthcheck published site
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --location --retry 10 --retry-delay 2 --retry-all-errors "${PAGE_URL}" -o /tmp/index.html
+          grep -F "Публикация результатов исследования" /tmp/index.html
+
+          curl --fail --silent --show-error --location --retry 10 --retry-delay 2 --retry-all-errors "${PAGE_URL}experiment/" -o /tmp/experiment.html
+          grep -F "Практическое задание P3" /tmp/experiment.html
+          grep -F "Размер входных данных" /tmp/experiment.html
+
+          curl --fail --silent --show-error --location --retry 10 --retry-delay 2 --retry-all-errors "${PAGE_URL}assets/experiment.png" -o /tmp/experiment.png
+          test -s /tmp/experiment.png
