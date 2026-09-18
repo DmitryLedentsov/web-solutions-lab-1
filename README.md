@@ -52,6 +52,8 @@ mkdocs serve
 
 ## Публикация
 
+Перед первой публикацией в репозитории нужно один раз выбрать **Settings → Pages → Source: GitHub Actions**.
+
 После push в `master` GitHub Actions выполняет генерацию результатов, строгую сборку MkDocs и публикует содержимое `site/` на GitHub Pages.
 
 Сайт: <https://dmitryledentsov.github.io/web-solutions-lab-1/>
